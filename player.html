@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animation player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: "Be Vietnam Pro", system-ui, sans-serif; }
+  #app { height: 100%; display: flex; flex-direction: column; padding: clamp(16px, 4vmin, 44px); overflow: auto; }
+
+  h1 { margin: 0; font-size: clamp(26px, 6vmin, 52px); font-weight: 700; line-height: 1.12; letter-spacing: -.01em; }
+  h2 { margin: 0 0 .4em; font-size: clamp(22px, 5vmin, 40px); font-weight: 700; line-height: 1.15; }
+  p { margin: 0; font-size: clamp(16px, 3vmin, 22px); line-height: 1.5; max-width: 38em; }
+  .sub { margin-top: .5em; opacity: .85; }
+  .w { display: inline-block; }
+
+  .stage { flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center; min-height: 0; padding: 12px 0; }
+  .nav { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  .count { font-size: 15px; opacity: .85; margin-right: auto; }
+  button { font: 600 16px "Be Vietnam Pro", system-ui, sans-serif; color: var(--ink); background: transparent; border: 2px solid var(--ink);
+    border-radius: 999px; padding: 8px 20px; min-height: 42px; cursor: pointer; }
+  button:hover:not(:disabled) { background: var(--ink); color: var(--bg); }
+  button.next { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  button.next:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); }
+  button:disabled { opacity: .35; cursor: default; }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+  /* Rail shared by steps and timeline */
+  .rail { position: relative; display: grid; list-style: none; margin: 18px 0 0; padding: 0; }
+  .track, .fill { position: absolute; top: 20px; height: 4px; border-radius: 2px; }
+  .track { background: var(--ink); opacity: .25; }
+  .fill { background: var(--accent); transform-origin: left center; }
+  .rail li { display: flex; flex-direction: column; align-items: center; min-width: 0; position: relative; }
+  .node { width: 44px; height: 44px; min-height: 0; padding: 0; border-radius: 50%; background: var(--bg); color: var(--ink); }
+  .node:hover:not(:disabled) { background: var(--bg); color: var(--ink); }
+  .done .node { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  .done .node:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
+  .rail-label { margin-top: 6px; padding: 0 4px; font-size: 14px; line-height: 1.25; text-align: center; opacity: .85; overflow-wrap: anywhere; }
+  .now .rail-label { font-weight: 700; opacity: 1; }
+  .when { font-size: clamp(40px, 13vmin, 110px); font-weight: 700; line-height: 1; color: var(--accent); margin-bottom: .12em; }
+
+  /* Chart */
+  .chart-box { position: relative; flex: 1 1 0; min-height: 200px; margin-top: 14px; }
+
+  .problem { margin: auto; text-align: center; }
+
+  @media (max-width: 560px) { .rail-label { display: none; } }
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.js"></script>
+<script>
+(function () {
+  var THEMES = {
+    campus: { bg: '#3B0B59', ink: '#FBF7FF', accent: '#E7BDFF' },
+    forest: { bg: '#1F4A33', ink: '#F6EFD9', accent: '#EDB95A' },
+    roast:  { bg: '#2A1810', ink: '#F7E8D3', accent: '#DDA66C' },
+    light:  { bg: '#FFFFFF', ink: '#241B2F', accent: '#510C76' }
+  };
+  var calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var app = document.getElementById('app');
+  var cleanup = null;
+
+  /* Content only ever goes in with textContent, so a link can't inject code into the page */
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null) n.textContent = String(text);
+    return n;
+  }
+  function move(target, from, to) {
+    if (calm || !window.gsap) return;
+    gsap.fromTo(target, from, Object.assign({ duration: .5, ease: 'power3.out' }, to));
+  }
+  function words(tag, text) {
+    var h = el(tag);
+    h.setAttribute('aria-label', text);
+    String(text).split(/\s+/).forEach(function (w, i) {
+      if (i) h.appendChild(document.createTextNode(' '));
+      var s = el('span', 'w', w);
+      s.setAttribute('aria-hidden', 'true');
+      h.appendChild(s);
+    });
+    return h;
+  }
+  function riseWords(h) {
+    move(h.querySelectorAll('.w'), { y: 24, opacity: 0 }, { y: 0, opacity: 1, stagger: .05 });
+  }
+
+  /* Back / Next, arrow keys and the counter, shared by the click-through templates */
+  function stepper(count, parent, onShow) {
+    var i = -1;
+    var nav = el('div', 'nav');
+    var counter = el('span', 'count');
+    var back = el('button', 'back', 'Back');
+    var next = el('button', 'next', 'Next');
+    back.type = next.type = 'button';
+    nav.append(counter, back, next);
+    parent.appendChild(nav);
+    function go(n) {
+      if (n < 0 || n >= count || n === i) return;
+      var dir = n > i ? 1 : -1;
+      i = n;
+      back.disabled = i === 0;
+      next.disabled = i === count - 1;
+      counter.textContent = (i + 1) + ' of ' + count;
+      onShow(i, dir);
+    }
+    back.onclick = function () { go(i - 1); };
+    next.onclick = function () { go(i + 1); };
+    function keys(e) {
+      if (e.key === 'ArrowRight') go(i + 1);
+      if (e.key === 'ArrowLeft') go(i - 1);
+    }
+    document.addEventListener('keydown', keys);
+    cleanup = function () { document.removeEventListener('keydown', keys); };
+    go(0);
+    return go;
+  }
+
+  /* ---------- Slides ---------- */
+  function slides(d) {
+    var deck = [{ h: d.title, b: d.sub, cover: true }].concat(d.items);
+    var stage = el('div', 'stage');
+    stage.setAttribute('aria-live', 'polite');
+    app.appendChild(stage);
+    stepper(deck.length, app, function (i, dir) {
+      var s = deck[i];
+      stage.textContent = '';
+      var h = words(s.cover ? 'h1' : 'h2', s.h || '');
+      stage.appendChild(h);
+      var p = el('p', s.cover ? 'sub' : '', s.b || '');
+      stage.appendChild(p);
+      riseWords(h);
+      move(p, { x: 30 * dir, opacity: 0 }, { x: 0, opacity: 1, delay: .2 });
+    });
+  }
+
+  /* ---------- Rail: used by steps and timeline ---------- */
+  function buildRail(items, labelOf, numbered) {
+    var n = items.length, half = 100 / (2 * n);
+    var rail = el('ol', 'rail');
+    rail.style.gridTemplateColumns = 'repeat(' + n + ', 1fr)';
+    var track = el('div', 'track'), fill = el('div', 'fill');
+    track.style.left = fill.style.left = half + '%';
+    track.style.right = fill.style.right = half + '%';
+    fill.style.transform = 'scaleX(0)';
+    rail.append(track, fill);
+    var lis = items.map(function (it, i) {
+      var li = el('li');
+      var b = el('button', 'node', numbered ? i + 1 : '');
+      b.type = 'button';
+      b.setAttribute('aria-label', 'Go to ' + labelOf(it));
+      li.append(b, el('span', 'rail-label', labelOf(it)));
+      rail.appendChild(li);
+      return { li: li, b: b };
+    });
+    return {
+      el: rail, nodes: lis,
+      set: function (i) {
+        lis.forEach(function (o, k) {
+          o.li.classList.toggle('done', k <= i);
+          o.li.classList.toggle('now', k === i);
+          if (k === i) o.b.setAttribute('aria-current', 'step'); else o.b.removeAttribute('aria-current');
+        });
+        var x = n > 1 ? i / (n - 1) : 0;
+        if (calm || !window.gsap) fill.style.transform = 'scaleX(' + x + ')';
+        else gsap.to(fill, { scaleX: x, duration: .55, ease: 'power2.inOut' });
+        move(lis[i].b, { scale: .7 }, { scale: 1, duration: .45, ease: 'back.out(3)', delay: .2 });
+      }
+    };
+  }
+  function railTemplate(d, numbered, labelOf, fillPanel) {
+    app.appendChild(words('h1', d.title || ''));
+    if (d.sub) app.appendChild(el('p', 'sub', d.sub));
+    var rail = buildRail(d.items, labelOf, numbered);
+    app.appendChild(rail.el);
+    var stage = el('div', 'stage');
+    stage.setAttribute('aria-live', 'polite');
+    app.appendChild(stage);
+    var go = stepper(d.items.length, app, function (i, dir) {
+      rail.set(i);
+      stage.textContent = '';
+      fillPanel(stage, d.items[i]);
+      move(stage.children, { x: 26 * dir, opacity: 0 }, { x: 0, opacity: 1, stagger: .07 });
+    });
+    rail.nodes.forEach(function (o, i) { o.b.onclick = function () { go(i); }; });
+  }
+  function steps(d) {
+    railTemplate(d, true, function (it) { return it.h || ''; }, function (stage, it) {
+      stage.append(el('h2', '', it.h || ''), el('p', '', it.b || ''));
+    });
+  }
+  function timeline(d) {
+    railTemplate(d, false, function (it) { return it.k || ''; }, function (stage, it) {
+      stage.append(el('div', 'when', it.k || ''), el('h2', '', it.h || ''), el('p', '', it.b || ''));
+    });
+  }
+
+  /* ---------- Animated chart ---------- */
+  function chart(d) {
+    if (!window.Chart) return problem('The chart library did not load. Check your connection and refresh.');
+    var t = THEMES[d.theme] || THEMES.campus;
+    var bar = d.kind !== 'line';
+    var head = words('h1', d.title || '');
+    app.appendChild(head);
+    riseWords(head);
+    if (d.sub) app.appendChild(el('p', 'sub', d.sub));
+    var unit = d.unit ? ' ' + d.unit : '';
+    var box = el('div', 'chart-box');
+    var canvas = el('canvas');
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', d.items.map(function (it) { return (it.h || '') + ': ' + it.v + unit; }).join('. '));
+    box.appendChild(canvas);
+    app.appendChild(box);
+    var font = { family: '"Be Vietnam Pro", system-ui, sans-serif', size: 15 };
+    var valueLabels = {
+      id: 'valueLabels',
+      afterDatasetsDraw: function (c) {
+        if (!bar) return;
+        var ctx = c.ctx;
+        ctx.save();
+        ctx.fillStyle = t.ink;
+        ctx.font = '600 15px "Be Vietnam Pro", system-ui, sans-serif';
+        ctx.textBaseline = 'middle';
+        c.getDatasetMeta(0).data.forEach(function (b, i) { ctx.fillText(c.data.datasets[0].data[i], b.x + 8, b.y); });
+        ctx.restore();
+      }
+    };
+    var inst;
+    function draw() {
+      if (inst) inst.destroy();
+      inst = new Chart(canvas, {
+        type: bar ? 'bar' : 'line',
+        data: {
+          labels: d.items.map(function (it) { return it.h || ''; }),
+          datasets: [{ data: d.items.map(function (it) { return Number(it.v) || 0; }), backgroundColor: t.accent, borderColor: t.accent,
+            borderRadius: 4, borderWidth: bar ? 0 : 3, pointRadius: 5, pointBackgroundColor: t.accent, tension: .25, maxBarThickness: 34 }]
+        },
+        options: {
+          indexAxis: bar ? 'y' : 'x', responsive: true, maintainAspectRatio: false,
+          animation: calm ? false : { duration: 1100, easing: 'easeOutQuart', delay: function (c) { return c.dataIndex * 90; } },
+          layout: { padding: { right: bar ? 56 : 12 } },
+          plugins: { legend: { display: false }, tooltip: { displayColors: false, callbacks: { label: function (c) { return (bar ? c.parsed.x : c.parsed.y) + unit; } } } },
+          scales: bar ? {
+            x: { display: false, beginAtZero: true },
+            y: { grid: { display: false }, border: { display: false }, ticks: { color: t.ink, font: font } }
+          } : {
+            x: { grid: { display: false }, ticks: { color: t.ink, font: font } },
+            y: { grid: { color: t.ink + '26' }, border: { display: false }, ticks: { color: t.ink, font: font } }
+          }
+        },
+        plugins: [valueLabels]
+      });
+    }
+    var nav = el('div', 'nav');
+    var replay = el('button', '', 'Replay animation');
+    replay.type = 'button';
+    replay.onclick = draw;
+    nav.append(el('span', 'count', ''), replay);
+    app.appendChild(nav);
+    draw();
+    cleanup = function () { if (inst) inst.destroy(); };
+  }
+
+  var TEMPLATES = { slides: slides, steps: steps, timeline: timeline, chart: chart };
+
+  function problem(msg) {
+    app.textContent = '';
+    app.appendChild(el('p', 'problem', msg));
+  }
+  function applyTheme(name) {
+    var t = THEMES[name] || THEMES.campus, s = document.documentElement.style;
+    s.setProperty('--bg', t.bg); s.setProperty('--ink', t.ink); s.setProperty('--accent', t.accent);
+  }
+  function render() {
+    if (cleanup) { cleanup(); cleanup = null; }
+    app.textContent = '';
+    applyTheme('campus');
+    var m = location.hash.match(/[#&]d=([^&]+)/);
+    if (!m) return problem('No animation in this link. Copy the embed code again from the builder.');
+    var d;
+    try { d = JSON.parse(LZString.decompressFromEncodedURIComponent(m[1])); } catch (e) { d = null; }
+    if (!d || !TEMPLATES[d.t] || !Array.isArray(d.items) || !d.items.length) {
+      return problem('This animation link is incomplete. Copy the embed code again from the builder.');
+    }
+    applyTheme(d.theme);
+    document.title = d.title || 'Animation';
+    TEMPLATES[d.t](d);
+  }
+  addEventListener('hashchange', render);
+  render();
+})();
+</script>
+</body>
+</html>

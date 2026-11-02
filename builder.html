@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animation builder for Canvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #241B2F; --muted: #5D5468; --line: #CFC8D8; --brand: #510C76; --tint: #F5F0F9; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; color: var(--ink); background: #fff; font: 16px/1.45 "Be Vietnam Pro", system-ui, sans-serif; }
+  header { padding: 20px 24px 8px; }
+  h1 { margin: 0; font-size: 26px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  .layout { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 24px; padding: 16px 24px 32px; align-items: start; }
+  h2 { font-size: 18px; margin: 0 0 10px; }
+  label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 12px; }
+  input, select, textarea { display: block; width: 100%; margin-top: 4px; font: 400 15px "Be Vietnam Pro", system-ui, sans-serif; color: var(--ink);
+    padding: 8px 10px; border: 1px solid #8D8499; border-radius: 6px; background: #fff; }
+  textarea { resize: vertical; min-height: 64px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid var(--brand); outline-offset: 1px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0 0 10px; padding: 10px 12px 2px; }
+  legend { font-weight: 600; font-size: 14px; padding: 0 4px; }
+  button { font: 600 15px "Be Vietnam Pro", system-ui, sans-serif; border-radius: 6px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--brand); background: #fff; color: var(--brand); }
+  button:hover { background: var(--tint); }
+  button.primary { background: var(--brand); color: #fff; }
+  button.primary:hover { background: #3B0B59; }
+  button.remove { float: right; padding: 2px 10px; font-size: 13px; }
+  #preview { width: 100%; border: 1px solid var(--line); border-radius: 8px; display: block; }
+  .output { margin-top: 18px; }
+  #code { font: 13px/1.4 Consolas, Menlo, monospace; height: 96px; word-break: break-all; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 8px; }
+  #status { font-size: 14px; color: var(--muted); }
+  #status.warn { color: #9A3412; font-weight: 600; }
+  details { margin-top: 16px; }
+  summary { cursor: pointer; font-weight: 600; }
+  @media (max-width: 820px) { .layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Animation builder for Canvas</h1>
+  <p>Fill in the form, check the preview, then paste the embed code into a Canvas page's HTML editor.</p>
+</header>
+
+<div class="layout">
+  <form id="form" autocomplete="off" onsubmit="return false">
+    <div class="row2">
+      <label>Template
+        <select id="t">
+          <option value="slides">Slides</option>
+          <option value="steps">Process steps</option>
+          <option value="timeline">Timeline</option>
+          <option value="chart">Animated chart</option>
+        </select>
+      </label>
+      <label>Color theme
+        <select id="theme">
+          <option value="campus">Purple</option>
+          <option value="forest">Forest</option>
+          <option value="roast">Roast</option>
+          <option value="light">Light</option>
+        </select>
+      </label>
+    </div>
+    <label>Title <input id="title" maxlength="120"></label>
+    <label>Short description (optional) <input id="sub" maxlength="240"></label>
+    <div class="row2" id="chartOpts" hidden>
+      <label>Chart type
+        <select id="kind"><option value="bar">Bars</option><option value="line">Line</option></select>
+      </label>
+      <label>Unit (optional) <input id="unit" maxlength="30"></label>
+    </div>
+    <h2 id="itemsTitle">Items</h2>
+    <div id="items"></div>
+    <button type="button" id="add">Add item</button>
+
+    <details>
+      <summary>Edit an animation you already made</summary>
+      <label style="margin-top:10px">Paste its embed code
+        <textarea id="pasted"></textarea>
+      </label>
+      <button type="button" id="load">Load into the form</button>
+      <span id="loadMsg" role="status"></span>
+    </details>
+  </form>
+
+  <section aria-label="Preview and embed code">
+    <h2>Preview</h2>
+    <iframe id="preview" title="Preview of your animation"></iframe>
+    <div class="output">
+      <h2><label for="code" style="font-size:18px;margin:0">Embed code</label></h2>
+      <textarea id="code" readonly></textarea>
+      <div class="bar">
+        <button type="button" class="primary" id="copy">Copy embed code</button>
+        <span id="status" role="status"></span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var FIELDS = {
+    slides:   { noun: 'Slide', height: 480, list: [['h', 'Heading'], ['b', 'Text', 'area']] },
+    steps:    { noun: 'Step', height: 520, list: [['h', 'Step name'], ['b', 'What happens', 'area']] },
+    timeline: { noun: 'Event', height: 560, list: [['k', 'Date'], ['h', 'Event'], ['b', 'Detail', 'area']] },
+    chart:    { noun: 'Data point', height: 500, list: [['h', 'Label'], ['v', 'Value', 'number']] }
+  };
+  var MAX_ITEMS = 12, LONG_LINK = 4000;
+
+  /* A separate draft per template, so switching templates never loses work */
+  var drafts = {
+    slides: { t: 'slides', theme: 'campus', title: 'Why coffee tastes different', sub: 'A short tour from fruit to cup', items: [
+      { h: 'It starts as a fruit', b: 'Each coffee cherry usually holds two seeds, and those seeds are the beans.' },
+      { h: 'Roasting builds flavor', b: 'Green beans taste grassy. Heat creates the flavors we recognize as coffee.' },
+      { h: 'Brewing pulls it out', b: 'Water temperature, ratio and time decide what ends up in the cup.' } ] },
+    steps: { t: 'steps', theme: 'forest', title: 'Make a pour-over', sub: 'Press Next to walk through each step', items: [
+      { h: 'Heat', b: 'Bring water to 90–96°C.' },
+      { h: 'Grind', b: 'Grind 15 g of coffee to a medium texture.' },
+      { h: 'Bloom', b: 'Pour a little water and wait 30 seconds while gas escapes.' },
+      { h: 'Pour', b: 'Add the rest of the water slowly in circles.' } ] },
+    timeline: { t: 'timeline', theme: 'roast', title: 'Coffee through history', sub: '', items: [
+      { k: '1400s', h: 'Yemen', b: 'Sufi communities in Yemen drink coffee during night devotions.' },
+      { k: '1600s', h: 'Europe', b: 'Coffee reaches Europe through trade with the Ottoman world.' },
+      { k: '1857', h: 'Vietnam', b: 'French missionaries bring coffee plants to Vietnam.' },
+      { k: '1901', h: 'Espresso', b: 'Luigi Bezzera patents an early espresso machine in Italy.' } ] },
+    chart: { t: 'chart', theme: 'light', kind: 'bar', unit: 'million bags', title: 'Top coffee producers, 2025/26', sub: 'Million 60-kg bags. Source: USDA FAS, July 2026.', items: [
+      { h: 'Brazil', v: 63.0 }, { h: 'Vietnam', v: 31.7 }, { h: 'Colombia', v: 12.5 }, { h: 'Indonesia', v: 12.4 }, { h: 'Ethiopia', v: 11.6 } ] }
+  };
+  var d = drafts.slides;
+
+  function encode(data) { return LZString.compressToEncodedURIComponent(JSON.stringify(data)); }
+  function clean(data) {
+    var out = { t: data.t, theme: data.theme, title: data.title, sub: data.sub };
+    if (data.t === 'chart') { out.kind = data.kind; out.unit = data.unit; }
+    out.items = data.items;
+    return out;
+  }
+  function attr(s) { return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  function refresh() {
+    var base = new URL('player.html', location.href);
+    base.hash = '';
+    base.search = '';
+    var url = base.href + '#d=' + encode(clean(d));
+    var h = FIELDS[d.t].height;
+    $('preview').height = h;
+    if ($('preview').src !== url) $('preview').src = url;
+    $('code').value = '<iframe src="' + attr(url) + '" title="' + attr(d.title || 'Animation') + '" width="100%" height="' + h + '" allowfullscreen="allowfullscreen"></iframe>';
+    var st = $('status');
+    st.className = url.length > LONG_LINK ? 'warn' : '';
+    st.textContent = url.length > LONG_LINK ? 'This link is long (' + url.length + ' characters). Shorten the text if Canvas cuts it off.' : '';
+  }
+
+  function drawItems() {
+    var f = FIELDS[d.t], box = $('items');
+    box.textContent = '';
+    $('itemsTitle').textContent = f.noun + 's';
+    d.items.forEach(function (it, i) {
+      var fs = document.createElement('fieldset');
+      var lg = document.createElement('legend');
+      lg.textContent = f.noun + ' ' + (i + 1);
+      fs.appendChild(lg);
+      if (d.items.length > 1) {
+        var rm = document.createElement('button');
+        rm.type = 'button'; rm.className = 'remove'; rm.textContent = 'Remove';
+        rm.setAttribute('aria-label', 'Remove ' + f.noun.toLowerCase() + ' ' + (i + 1));
+        rm.onclick = function () { d.items.splice(i, 1); drawItems(); refresh(); };
+        fs.appendChild(rm);
+      }
+      f.list.forEach(function (spec) {
+        var lab = document.createElement('label');
+        lab.textContent = spec[1];
+        var input = document.createElement(spec[2] === 'area' ? 'textarea' : 'input');
+        if (spec[2] === 'number') { input.type = 'number'; input.step = 'any'; }
+        input.value = it[spec[0]] !== undefined ? it[spec[0]] : '';
+        input.oninput = function () { it[spec[0]] = spec[2] === 'number' ? Number(input.value) : input.value; refresh(); };
+        lab.appendChild(input);
+        fs.appendChild(lab);
+      });
+      box.appendChild(fs);
+    });
+    $('add').disabled = d.items.length >= MAX_ITEMS;
+    $('add').textContent = 'Add ' + f.noun.toLowerCase();
+  }
+
+  function drawForm() {
+    $('t').value = d.t;
+    $('theme').value = d.theme || 'campus';
+    $('title').value = d.title || '';
+    $('sub').value = d.sub || '';
+    $('kind').value = d.kind || 'bar';
+    $('unit').value = d.unit || '';
+    $('chartOpts').hidden = d.t !== 'chart';
+    drawItems();
+    refresh();
+  }
+
+  $('t').onchange = function () { d = drafts[this.value]; drawForm(); };
+  ['theme', 'title', 'sub', 'kind', 'unit'].forEach(function (k) {
+    $(k).oninput = function () { d[k] = this.value; refresh(); };
+  });
+  $('add').onclick = function () {
+    d.items.push(d.t === 'chart' ? { h: '', v: 0 } : {});
+    drawItems(); refresh();
+  };
+  $('copy').onclick = function () {
+    var st = $('status');
+    function done() { st.className = ''; st.textContent = 'Copied. Paste it into the Canvas HTML editor.'; }
+    $('code').select();
+    if (navigator.clipboard) navigator.clipboard.writeText($('code').value).then(done, function () { document.execCommand('copy'); done(); });
+    else { document.execCommand('copy'); done(); }
+  };
+  $('load').onclick = function () {
+    var m = $('pasted').value.match(/#d=([^"'&\s<]+)/), msg = $('loadMsg'), got = null;
+    if (m) { try { got = JSON.parse(LZString.decompressFromEncodedURIComponent(m[1])); } catch (e) { got = null; } }
+    if (!got || !FIELDS[got.t] || !Array.isArray(got.items)) {
+      msg.textContent = ' That code has no animation in it. Paste the whole embed code.';
+      return;
+    }
+    drafts[got.t] = got; d = got;
+    msg.textContent = ' Loaded.';
+    drawForm();
+  };
+  drawForm();
+})();
+</script>
+</body>
+</html>
