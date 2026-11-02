@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coffee: From Fruit to Cup</title>
+
+<!-- Fonts: a stencil like the stamp on a coffee sack, plus a text face with full Vietnamese support -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600&family=Stardos+Stencil:wght@700&display=swap" rel="stylesheet">
+
+<!-- Library CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css">
+
+<style>
+  :root { --bg: #1F4A33; --ink: #F6EFD9; }
+  html, body { height: 100%; margin: 0; }
+  html, body, body.reveal-viewport { background: var(--bg) !important; }
+  body { color: var(--ink); }
+
+  /* Layers: bean, then steam, then slides */
+  #bean, #steam { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #bean { z-index: 0; }
+  #steam { z-index: 1; filter: blur(22px); }
+  .reveal { position: relative; z-index: 2; font-family: "Be Vietnam Pro", system-ui, sans-serif; color: var(--ink); }
+  .reveal .controls { color: var(--ink); }
+
+  /* Slide type */
+  .reveal .slides { text-align: left; }
+  .reveal .slides section.sl { box-sizing: border-box; height: 720px; padding: 56px 64px 72px; }
+  .reveal h1, .reveal h2 { margin: 0; font-family: "Stardos Stencil", Impact, sans-serif; font-weight: 700; line-height: .95; color: var(--ink); }
+  .reveal h1 { font-size: 208px; }
+  .reveal h2 { font-size: 76px; margin-bottom: 28px; max-width: 900px; }
+  .reveal p { margin: 0 0 20px; font-size: 26px; line-height: 1.5; max-width: 34em; }
+  .reveal .narrow { max-width: 620px; }
+  .small { font-size: 18px !important; opacity: .85; }
+  .tagline { font-size: 36px !important; min-height: 1.5em; font-weight: 600; }
+  .big-number { font-family: "Stardos Stencil", Impact, sans-serif; font-size: 118px; font-weight: 700; line-height: 1; display: block; }
+  .vcenter { display: flex; flex-direction: column; justify-content: center; }
+
+  /* World crop */
+  .world { display: grid; grid-template-columns: 370px 1fr; gap: 40px; align-items: start; }
+  .chart-box { position: relative; height: 380px; }
+  .chart-title { font-size: 20px !important; font-weight: 600; margin-bottom: 8px !important; }
+
+  /* Species */
+  .species { display: grid; grid-template-columns: 1fr 200px 1fr; }
+  .species h3 { margin: 0 0 4px; font-size: 34px; font-weight: 600; color: var(--ink); text-transform: none; }
+  .species p { font-size: 23px; }
+  .species .big-number { font-size: 92px; margin-bottom: 16px; }
+  .species .big-number + span { display: block; font-size: 19px; margin: -10px 0 20px; }
+
+  /* Roast curve */
+  #roastCurve { width: 860px; max-width: 100%; height: auto; display: block; overflow: visible; }
+  #roastCurve text { fill: var(--ink); font-family: "Be Vietnam Pro", sans-serif; font-size: 17px; }
+  #roastCurve .axis path, #roastCurve .axis line { stroke: var(--ink); opacity: .35; }
+  #roastCurve .mark-label { font-weight: 600; font-size: 19px; }
+
+  /* Brew numbers */
+  .numbers { display: grid; gap: 24px; max-width: 840px; }
+  .numbers > div { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: baseline; }
+  .numbers .big-number { font-size: 76px; white-space: nowrap; }
+  .numbers p { margin: 0; font-size: 24px; }
+
+  /* Drink builder */
+  .drinks { display: grid; grid-template-columns: 330px 1fr; gap: 48px; align-items: start; }
+  #glass { width: 300px; height: auto; display: block; }
+  .pick { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 26px; }
+  .reveal button { font: 600 21px "Be Vietnam Pro", sans-serif; color: var(--ink); background: transparent;
+    border: 2px solid var(--ink); border-radius: 999px; padding: 10px 22px; cursor: pointer; transition: background .15s, color .15s; }
+  .reveal button:hover, .reveal button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .reveal button:focus-visible, #meter button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  #legend { list-style: none; margin: 0 0 20px; padding: 0; font-size: 23px; display: block; }
+  #legend li { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  #legend i { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--ink); flex: none; }
+
+  /* Vietnam */
+  #steps { font-size: 26px; line-height: 1.7; min-height: 190px; max-width: 760px; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0 30px; }
+
+  /* Roast meter: one segment per slide, in that slide's colour */
+  #meter { position: fixed; z-index: 3; left: 24px; bottom: 16px; display: flex; gap: 4px; }
+  #meter button { width: 34px; height: 24px; padding: 8px 0; background: none; border: 0; cursor: pointer; }
+  #meter span { display: block; height: 8px; background: var(--c); border: 1px solid var(--ink); border-radius: 2px; box-sizing: border-box; transition: height .2s, transform .2s; }
+  #meter button[aria-current="true"] span { height: 16px; transform: translateY(-4px); }
+
+  /* Phone, portrait: slides become tall and columns stack */
+  body.portrait .reveal .slides section.sl { height: 1136px; padding: 56px 40px 110px; }
+  body.portrait .reveal h1 { font-size: 150px; }
+  body.portrait .reveal h2 { font-size: 66px; }
+  body.portrait .reveal p { font-size: 28px; }
+  body.portrait .tagline { font-size: 34px !important; }
+  body.portrait .world, body.portrait .drinks { grid-template-columns: 1fr; gap: 16px; }
+  body.portrait .species { grid-template-columns: 1fr; gap: 170px; }
+  body.portrait .numbers > div { grid-template-columns: 1fr; gap: 4px; }
+  body.portrait #glass { width: 230px; }
+  body.portrait .chart-box { height: 420px; }
+  body.portrait #meter button { width: 24px; }
+  body.portrait .vcenter { justify-content: flex-start; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate__animated { animation: none !important; }
+    #meter span { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="bean" aria-hidden="true"></canvas>
+<div id="steam" aria-hidden="true"></div>
+
+<div class="reveal">
+  <div class="slides">
+
+    <section class="sl vcenter" aria-label="Title">
+      <h1 class="stamp">Coffee</h1>
+      <p class="tagline"><span id="tagline"></span></p>
+      <p class="small in">Press the right arrow to start</p>
+    </section>
+
+    <section class="sl vcenter" aria-label="Origins">
+      <h2 class="stamp narrow">It starts as a fruit</h2>
+      <p class="in narrow">Coffee grows as a small red cherry. Inside are usually two seeds, and those seeds are the beans.</p>
+      <p class="in narrow">Legend says an Ethiopian goat herder named Kaldi noticed his goats getting lively after eating the cherries.</p>
+    </section>
+
+    <section class="sl" aria-label="World production">
+      <h2 class="stamp">The world's crop</h2>
+      <div class="world">
+        <div class="in">
+          <span class="big-number" id="worldTotal">178.8</span>
+          <p>million 60-kg bags grown in the 2025/26 season</p>
+          <p class="small">Source: USDA Foreign Agricultural Service, Coffee: World Markets and Trade, July 2026</p>
+        </div>
+        <div class="in">
+          <p class="chart-title">Top five producers, million 60-kg bags</p>
+          <div class="chart-box"><canvas id="cropChart" role="img" aria-label="Bar chart. Brazil 63.0, Vietnam 31.7, Colombia 12.5, Indonesia 12.4, Ethiopia 11.6 million bags."></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sl" aria-label="Arabica and robusta">
+      <h2 class="stamp">Two species run the market</h2>
+      <div class="species">
+        <div id="arabica">
+          <h3>Arabica</h3>
+          <span class="big-number" id="arabicaN">94.4</span><span>million bags, 2025/26</span>
+          <p>Sweeter and more acidic. Usually grown higher up. Roughly 1.2–1.5% caffeine.</p>
+        </div>
+        <div></div>
+        <div id="robusta">
+          <h3>Robusta</h3>
+          <span class="big-number" id="robustaN">84.4</span><span>million bags, 2025/26</span>
+          <p>Bolder and more bitter. A hardier plant. Roughly 2.2–2.7% caffeine.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="sl" aria-label="Roasting">
+      <h2 class="stamp">Heat turns green to brown</h2>
+      <svg id="roastCurve" viewBox="0 0 860 440" role="img" aria-label="Line chart of bean temperature over a 13 minute roast. First crack is near 196 degrees Celsius and second crack near 224."></svg>
+    </section>
+
+    <section class="sl" aria-label="Brewing numbers">
+      <h2 class="stamp">Three numbers to get right</h2>
+      <div class="numbers">
+        <div class="fragment custom" data-anim="animate__backInLeft">
+          <span class="big-number">90–96°C</span>
+          <p>Water temperature for brewing (195–205°F). Hotter tastes bitter, cooler tastes sour.</p>
+        </div>
+        <div class="fragment custom" data-anim="animate__backInLeft">
+          <span class="big-number">55 g</span>
+          <p>Coffee per litre of water, the classic starting ratio for filter coffee.</p>
+        </div>
+        <div class="fragment custom" data-anim="animate__backInLeft">
+          <span class="big-number">9 bar</span>
+          <p>The usual pressure behind a shot of espresso.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="sl" aria-label="Build a drink">
+      <h2 class="stamp">Same coffee, different glass</h2>
+      <div class="drinks">
+        <svg id="glass" viewBox="0 0 240 320" role="img" aria-label="Glass showing the layers of the chosen drink">
+          <defs>
+            <clipPath id="glassClip"><path d="M30 10 L210 10 L190 300 Q188 310 178 310 L62 310 Q52 310 50 300 Z"/></clipPath>
+          </defs>
+          <path d="M30 10 L210 10 L190 300 Q188 310 178 310 L62 310 Q52 310 50 300 Z" fill="rgba(255,255,255,.1)"/>
+          <g id="layers" clip-path="url(#glassClip)"></g>
+          <path d="M30 10 L210 10 L190 300 Q188 310 178 310 L62 310 Q52 310 50 300 Z" fill="none" stroke="currentColor" stroke-width="4"/>
+        </svg>
+        <div>
+          <div class="pick" id="pick" role="group" aria-label="Choose a drink"></div>
+          <ul id="legend"></ul>
+          <p id="drinkNote" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="sl" aria-label="Vietnamese iced coffee">
+      <h2 class="stamp">Vietnam's answer</h2>
+      <p class="in narrow">Vietnam grew 31.7 million bags in 2025/26, second only to Brazil, and most of it is robusta. Its best-known drink is cà phê sữa đá.</p>
+      <div id="steps" class="narrow"><span id="stepsText"></span></div>
+    </section>
+
+    <section class="sl vcenter" aria-label="The end">
+      <h2 class="stamp narrow">Now go make one</h2>
+      <p class="in narrow">Fruit, seed, roast, brew. Change any step and you change the cup.</p>
+      <div class="actions in">
+        <button id="toss" type="button">Toss the beans</button>
+        <button id="restart" type="button">Start over</button>
+      </div>
+      <p class="small in narrow">Built with Reveal.js, GSAP, Three.js, Chart.js, D3, Anime.js, Typed.js, CountUp.js, tsParticles, canvas-confetti and Animate.css.</p>
+    </section>
+
+  </div>
+</div>
+
+<nav id="meter" aria-label="Slides"></nav>
+
+<!-- Open-source JavaScript libraries -->
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/countup.js@2.8.0/dist/countUp.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tsparticles/slim@3.5.0/tsparticles.slim.bundle.min.js"></script>
+
+<script>
+(function () {
+  var calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var portrait = innerHeight > innerWidth;
+  if (portrait) document.body.classList.add('portrait');
+
+  /* One entry per slide. The background darkens like a roast, and the bean follows.
+     at = [x, y, size] as fractions of the screen; pat = the same for phones. */
+  var STATES = [
+    { bg: '#1F4A33', ink: '#F6EFD9', bean: '#B3182A', morph: 0, rough: .28, at: [.76, .5, 1.5],  pat: [.5, .75, 1.0] },
+    { bg: '#8E1826', ink: '#FBEFE0', bean: '#A8B77F', morph: 1, rough: .7,  at: [.78, .5, 1.4],  pat: [.5, .75, 1.0] },
+    { bg: '#C2CBA3', ink: '#1E2A16', bean: '#7F8F55', morph: 1, rough: .75, at: [.92, .13, .32], pat: [.88, .09, .2] },
+    { bg: '#DDBB63', ink: '#2A1C06', bean: '#B08232', morph: 1, rough: .7,  at: [.5, .58, .62],  pat: [.5, .56, .36] },
+    { bg: '#B27B45', ink: '#1C0F05', bean: '#B08232', morph: 1, rough: .65, at: [.91, .52, .55], pat: [.5, .79, .58] },
+    { bg: '#6B4226', ink: '#FBEEDC', bean: '#3F2412', morph: 1, rough: .55, at: [.9, .22, .5],   pat: [.8, .78, .45] },
+    { bg: '#4A2C1A', ink: '#FBEEDC', bean: '#3F2412', morph: 1, rough: .5,  at: [.5, .5, 0],     pat: [.5, .5, 0] },
+    { bg: '#2A1810', ink: '#F7E8D3', bean: '#3A2010', morph: 1, rough: .4,  at: [.85, .5, .95],  pat: [.5, .82, .8] },
+    { bg: '#140B07', ink: '#F7E8D3', bean: '#2E170B', morph: 1, rough: .16, at: [.76, .5, 1.4],  pat: [.5, .78, .95] }
+  ];
+
+  /* ---------- Three.js: the bean that travels through the deck ---------- */
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(35, 1, .1, 50);
+  camera.position.z = 8;
+  var renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bean'), alpha: true, antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x332211, 1.5));
+  var sun = new THREE.DirectionalLight(0xffffff, 2.6);
+  sun.position.set(3, 4, 5);
+  scene.add(sun);
+
+  var geo = new THREE.SphereGeometry(1, 160, 120);
+  var unit = geo.attributes.position.array.slice();
+  var material = new THREE.MeshStandardMaterial({ color: STATES[0].bean, roughness: STATES[0].rough });
+  var mesh = new THREE.Mesh(geo, material);
+  mesh.rotation.x = .3;
+  scene.add(mesh);
+
+  var out = [0, 0, 0];
+  function smooth(a, b, x) { var t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+  /* Sphere (the cherry) blends into a flat-faced bean with an S-shaped groove */
+  function shape(nx, ny, nz, m) {
+    var flat = smooth(-.1, .1, nz);
+    var bx = .82 * nx, by = 1.18 * ny, bz = (.74 + (.42 - .74) * flat) * nz;
+    var g = nx - .07 * Math.sin(ny * 3.2);
+    bz -= flat * .2 * Math.exp(-(g * g) / .0072) * smooth(0, .35, nz);
+    out[0] = .95 * nx + (bx - .95 * nx) * m;
+    out[1] = .95 * ny + (by - .95 * ny) * m;
+    out[2] = .95 * nz + (bz - .95 * nz) * m;
+  }
+  function norm3(a) { var l = Math.hypot(a[0], a[1], a[2]) || 1; a[0] /= l; a[1] /= l; a[2] /= l; return a; }
+  var morphState = { m: 0 };
+  function rebuild() {
+    var pos = geo.attributes.position.array, nor = geo.attributes.normal.array, m = morphState.m, e = .012;
+    var t1 = [0, 0, 0], t2 = [0, 0, 0], a = [0, 0, 0];
+    for (var i = 0; i < unit.length; i += 3) {
+      var x = unit[i], y = unit[i + 1], z = unit[i + 2];
+      shape(x, y, z, m);
+      var px = out[0], py = out[1], pz = out[2];
+      pos[i] = px; pos[i + 1] = py; pos[i + 2] = pz;
+      if (Math.abs(y) > .9) { t1[0] = 0; t1[1] = -z; t1[2] = y; } else { t1[0] = z; t1[1] = 0; t1[2] = -x; }
+      norm3(t1);
+      t2[0] = y * t1[2] - z * t1[1]; t2[1] = z * t1[0] - x * t1[2]; t2[2] = x * t1[1] - y * t1[0];
+      a[0] = x + e * t1[0]; a[1] = y + e * t1[1]; a[2] = z + e * t1[2]; norm3(a);
+      shape(a[0], a[1], a[2], m);
+      var ax = out[0] - px, ay = out[1] - py, az = out[2] - pz;
+      a[0] = x + e * t2[0]; a[1] = y + e * t2[1]; a[2] = z + e * t2[2]; norm3(a);
+      shape(a[0], a[1], a[2], m);
+      var bx = out[0] - px, by = out[1] - py, bz = out[2] - pz;
+      var nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+      if (nx * px + ny * py + nz * pz < 0) { nx = -nx; ny = -ny; nz = -nz; }
+      var l = Math.hypot(nx, ny, nz) || 1;
+      nor[i] = nx / l; nor[i + 1] = ny / l; nor[i + 2] = nz / l;
+    }
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.normal.needsUpdate = true;
+  }
+  rebuild();
+
+  function target(s) {
+    var p = portrait ? s.pat : s.at;
+    var h = 2 * camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    var w = h * camera.aspect;
+    return { x: (p[0] - .5) * w, y: (.5 - p[1]) * h, s: Math.max(p[2], .0001) };
+  }
+  function resize() {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight, false);
+    if (window.Reveal && Reveal.isReady() && STATES[Reveal.getIndices().h]) placeBean(Reveal.getIndices().h, 0);
+  }
+  addEventListener('resize', resize);
+  resize();
+  var t0 = target(STATES[0]);
+  mesh.position.set(t0.x, t0.y, 0);
+  mesh.scale.setScalar(t0.s);
+
+  gsap.ticker.add(function () {
+    if (!calm) mesh.rotation.y += .005;
+    if (mesh.scale.x > .001) renderer.render(scene, camera); else renderer.clear();
+  });
+
+  /* ---------- GSAP: moves the roast along when the slide changes ---------- */
+  function setBeanColor(hex, dur) {
+    var c = new THREE.Color(hex);
+    gsap.to(material.color, { r: c.r, g: c.g, b: c.b, duration: dur, overwrite: true });
+  }
+  function placeBean(i, dur) {
+    var s = STATES[i], t = target(s);
+    gsap.to(mesh.position, { x: t.x, y: t.y, duration: dur, ease: 'power3.inOut', overwrite: true });
+    gsap.to(mesh.scale, { x: t.s, y: t.s, z: t.s, duration: dur, ease: 'power3.inOut', overwrite: true });
+    gsap.to(material, { roughness: s.rough, duration: dur, overwrite: true });
+    gsap.to(morphState, { m: s.morph, duration: dur, ease: 'power2.inOut', overwrite: true, onUpdate: rebuild, onComplete: rebuild });
+    setBeanColor(s.bean, dur);
+  }
+  function stampIn(section) {
+    if (calm) return;
+    var stamp = section.querySelector('.stamp');
+    var rest = section.querySelectorAll('.in');
+    gsap.killTweensOf([stamp, rest]);
+    gsap.fromTo(stamp, { scale: 1.3, rotation: -2.5, autoAlpha: 0, transformOrigin: 'left center' },
+                       { scale: 1, rotation: 0, autoAlpha: 1, duration: .32, ease: 'power4.in', delay: .25 });
+    gsap.fromTo(rest, { y: 16, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: .5, stagger: .12, delay: .6, ease: 'power2.out' });
+  }
+
+  /* ---------- CountUp.js ---------- */
+  function count(id, value) {
+    var el = document.getElementById(id);
+    if (calm) { el.textContent = value.toFixed(1); return; }
+    new countUp.CountUp(el, value, { decimalPlaces: 1, duration: 1.8 }).start();
+  }
+
+  /* ---------- Typed.js ---------- */
+  var typers = {};
+  function type(id, strings, opts) {
+    if (typers[id]) typers[id].destroy();
+    var el = document.getElementById(id);
+    if (calm) { el.innerHTML = strings.join(''); return; }
+    typers[id] = new Typed(el, Object.assign({ strings: strings, typeSpeed: 28, startDelay: 700 }, opts));
+  }
+
+  /* ---------- Chart.js: top producers ---------- */
+  var cropChart;
+  function drawCrop() {
+    if (cropChart) cropChart.destroy();
+    var ink = STATES[2].ink;
+    cropChart = new Chart(document.getElementById('cropChart'), {
+      type: 'bar',
+      data: {
+        labels: ['Brazil', 'Vietnam', 'Colombia', 'Indonesia', 'Ethiopia'],
+        datasets: [{ data: [63.0, 31.7, 12.5, 12.4, 11.6], backgroundColor: ink, borderRadius: 4, barThickness: 34 }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false, devicePixelRatio: 2,
+        animation: calm ? false : { duration: 1200, easing: 'easeOutQuart', delay: function (c) { return 400 + c.dataIndex * 120; } },
+        layout: { padding: { right: 70 } },
+        plugins: { legend: { display: false }, tooltip: { displayColors: false, callbacks: { label: function (c) { return c.parsed.x.toFixed(1) + ' million bags'; } } } },
+        scales: {
+          x: { display: false, beginAtZero: true, max: 66 },
+          y: { grid: { display: false }, border: { display: false }, ticks: { color: ink, font: { family: 'Be Vietnam Pro', size: 21 } } }
+        }
+      },
+      plugins: [{
+        id: 'values',
+        afterDatasetsDraw: function (chart) {
+          var ctx = chart.ctx;
+          ctx.save();
+          ctx.fillStyle = ink;
+          ctx.font = '600 21px "Be Vietnam Pro", sans-serif';
+          ctx.textBaseline = 'middle';
+          chart.getDatasetMeta(0).data.forEach(function (bar, i) {
+            ctx.fillText(chart.data.datasets[0].data[i].toFixed(1), bar.x + 10, bar.y);
+          });
+          ctx.restore();
+        }
+      }]
+    });
+  }
+
+  /* ---------- D3: roast curve ---------- */
+  function drawRoast() {
+    var svg = d3.select('#roastCurve');
+    svg.selectAll('*').remove();
+    var W = portrait ? 580 : 860, H = 440, m = { top: 20, right: portrait ? 16 : 120, bottom: 58, left: 62 };
+    svg.attr('viewBox', '0 0 ' + W + ' ' + H);
+    var x = d3.scaleLinear().domain([0, 13]).range([m.left, W - m.right]);
+    var y = d3.scaleLinear().domain([80, 240]).range([H - m.bottom, m.top]);
+    var pts = [[0, 200], [1, 95], [2.5, 120], [4, 150], [6, 175], [8.5, 196], [11, 215], [13, 226]];
+    var line = d3.line().x(function (d) { return x(d[0]); }).y(function (d) { return y(d[1]); }).curve(d3.curveMonotoneX);
+
+    svg.append('g').attr('class', 'axis').attr('transform', 'translate(0,' + (H - m.bottom) + ')').call(d3.axisBottom(x).ticks(6).tickSize(0).tickPadding(10));
+    svg.append('g').attr('class', 'axis').attr('transform', 'translate(' + m.left + ',0)').call(d3.axisLeft(y).ticks(4).tickSize(0).tickPadding(10));
+    svg.append('text').attr('x', (m.left + W - m.right) / 2).attr('y', H - 8).attr('text-anchor', 'middle').text(portrait ? 'Minutes in the roaster (illustrative)' : 'Minutes in the roaster (typical curve, for illustration)');
+    svg.append('text').attr('x', 0).attr('y', 12).text('°C');
+
+    var path = svg.append('path').datum(pts).attr('d', line).attr('fill', 'none').attr('stroke', 'currentColor').attr('stroke-width', 3).attr('stroke-linecap', 'round');
+    var len = path.node().getTotalLength();
+    var dur = calm ? 0 : 3200;
+    path.attr('stroke-dasharray', len).attr('stroke-dashoffset', len)
+        .transition().delay(dur ? 500 : 0).duration(dur).ease(d3.easeLinear).attr('stroke-dashoffset', 0);
+
+    [{ t: 8.5, c: 196, label: 'First crack, about 196°C', dy: 44, dx: portrait ? -190 : -6 }, { t: 12.2, c: 224, label: 'Second crack, about 224°C', dy: -16, dx: -240 }].forEach(function (d) {
+      var g = svg.append('g').style('opacity', dur ? 0 : 1);
+      g.append('circle').attr('cx', x(d.t)).attr('cy', y(d.c)).attr('r', 6).attr('fill', 'currentColor');
+      g.append('text').attr('class', 'mark-label').attr('x', x(d.t) + d.dx).attr('y', y(d.c) + d.dy).text(d.label);
+      g.transition().delay(dur ? 500 + dur * d.t / 13 : 0).duration(300).style('opacity', 1);
+    });
+    /* The 3D bean darkens as the line climbs */
+    if (dur) gsap.to(material.color, Object.assign(colorOf('#4A2A14'), { duration: dur / 1000, delay: .5, overwrite: true, ease: 'none' }));
+    else setBeanColor('#4A2A14', 0);
+  }
+  function colorOf(hex) { var c = new THREE.Color(hex); return { r: c.r, g: c.g, b: c.b }; }
+
+  /* ---------- Anime.js: pour a drink, layer by layer ---------- */
+  var COL = { espresso: '#1B0D06', crema: '#C68642', milk: '#EADBC0', foam: '#FBF6EC', condensed: '#F2DFA8', ice: 'rgba(235,245,250,.5)' };
+  var DRINKS = {
+    'Espresso': { layers: [['Espresso', COL.espresso, .24], ['Crema', COL.crema, .05]], note: 'A small, strong shot. The tan crema on top comes from pressure.' },
+    'Cappuccino': { layers: [['Espresso', COL.espresso, .25], ['Steamed milk', COL.milk, .3], ['Foam', COL.foam, .3]], note: 'Close to equal parts, with a thick cap of foam.' },
+    'Latte': { layers: [['Espresso', COL.espresso, .18], ['Steamed milk', COL.milk, .66], ['Foam', COL.foam, .06]], note: 'Mostly milk, with a thin layer of foam.' },
+    'Cà phê sữa đá': { layers: [['Condensed milk', COL.condensed, .2], ['Strong coffee', COL.espresso, .62]], ice: true, note: 'Sweet milk at the bottom, dark coffee above, plenty of ice.' }
+  };
+  var layers = document.getElementById('layers');
+  var pick = document.getElementById('pick');
+  var pourAnim;
+  function pour(name) {
+    var d = DRINKS[name];
+    if (pourAnim) pourAnim.pause();
+    anime.remove(layers.querySelectorAll('rect'));
+    layers.innerHTML = '';
+    pick.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', b.textContent === name); });
+    document.getElementById('legend').innerHTML = d.layers.map(function (l) { return '<li><i style="background:' + l[1] + '"></i>' + l[0] + '</li>'; }).join('') +
+      (d.ice ? '<li><i style="background:' + COL.ice + '"></i>Ice</li>' : '');
+    document.getElementById('drinkNote').textContent = d.note;
+
+    pourAnim = anime.timeline({ easing: 'easeOutCubic', duration: calm ? 1 : 520 });
+    var bottom = 310;
+    d.layers.forEach(function (l) {
+      var h = l[2] * 300;
+      var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      r.setAttribute('x', 0); r.setAttribute('width', 240); r.setAttribute('y', bottom); r.setAttribute('height', 0); r.setAttribute('fill', l[1]);
+      layers.appendChild(r);
+      pourAnim.add({ targets: r, y: bottom - h, height: h });
+      bottom -= h;
+    });
+    if (d.ice) {
+      [[72, 120], [130, 92], [88, 44], [142, 28]].forEach(function (c, i) {
+        var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        r.setAttribute('x', c[0]); r.setAttribute('y', -60); r.setAttribute('width', 46); r.setAttribute('height', 46); r.setAttribute('rx', 8);
+        r.setAttribute('fill', COL.ice); r.setAttribute('stroke', 'rgba(255,255,255,.7)');
+        layers.appendChild(r);
+        pourAnim.add({ targets: r, y: c[1], easing: 'easeOutBounce', duration: calm ? 1 : 620 }, calm ? 0 : '-=' + (i ? 460 : 200));
+      });
+    }
+  }
+  Object.keys(DRINKS).forEach(function (name) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = name;
+    b.addEventListener('click', function () { pour(name); });
+    pick.appendChild(b);
+  });
+
+  /* ---------- tsParticles: steam on the last slide ---------- */
+  var steam;
+  function startSteam() {
+    if (calm || steam) return;
+    loadSlim(tsParticles).then(function () {
+      return tsParticles.load({ id: 'steam', options: {
+        fullScreen: { enable: false }, fpsLimit: 40, detectRetina: true,
+        particles: {
+          number: { value: 22 }, color: { value: '#E8D9C4' },
+          opacity: { value: { min: .03, max: .12 } }, size: { value: { min: 24, max: 70 } },
+          move: { enable: true, direction: 'top', speed: 1.1, outModes: { default: 'out' } }
+        }
+      } });
+    }).then(function (c) { steam = c; if (Reveal.getIndices().h !== 8) stopSteam(); });
+  }
+  function stopSteam() { if (steam) { steam.destroy(); steam = null; } }
+
+  /* ---------- canvas-confetti: bean-shaped ---------- */
+  document.getElementById('toss').addEventListener('click', function () {
+    var beanShape = confetti.shapeFromPath({ path: 'M0 -10 C7 -10 9 -4 9 0 C9 6 6 10 0 10 C-6 10 -9 6 -9 0 C-9 -5 -6 -10 0 -10 Z' });
+    confetti({ particleCount: 110, spread: 90, startVelocity: 48, origin: { x: .5, y: .75 }, shapes: [beanShape], scalar: 2.4,
+      colors: ['#C68642', '#8B5A2B', '#E3C28F', '#A8B77F'], disableForReducedMotion: true });
+  });
+  document.getElementById('restart').addEventListener('click', function () { Reveal.slide(0); });
+
+  /* Stop Space or Enter on a button from also advancing the slide */
+  document.querySelectorAll('.reveal button').forEach(function (b) {
+    b.addEventListener('keydown', function (e) { if (e.key === ' ' || e.key === 'Enter') e.stopPropagation(); });
+  });
+
+  /* ---------- What runs when each slide opens ---------- */
+  var ENTER = [
+    function () { type('tagline', ['From red fruit to your cup.'], { showCursor: false }); },
+    function () {},
+    function () { count('worldTotal', 178.8); drawCrop(); },
+    function () {
+      count('arabicaN', 94.4); count('robustaN', 84.4);
+      if (calm) return;
+      ['arabica', 'robusta'].forEach(function (id, i) {
+        var el = document.getElementById(id);
+        el.classList.remove('animate__animated', 'animate__fadeInLeft', 'animate__fadeInRight');
+        void el.offsetWidth;
+        el.classList.add('animate__animated', i ? 'animate__fadeInRight' : 'animate__fadeInLeft');
+      });
+    },
+    drawRoast,
+    function () {},
+    function () { pour('Espresso'); },
+    function () {
+      type('stepsText', ['1. Spoon condensed milk into a glass.<br>2. Set a phin filter on top, add coffee and hot water.<br>3. Wait for the slow drip.<br>4. Stir, then pour over ice.'],
+        { typeSpeed: 22, startDelay: 1100, showCursor: false });
+    },
+    startSteam
+  ];
+
+  /* ---------- Roast meter ---------- */
+  var meter = document.getElementById('meter');
+  STATES.forEach(function (s, i) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Go to slide ' + (i + 1) + ' of ' + STATES.length);
+    b.innerHTML = '<span style="--c:' + s.bg + '"></span>';
+    b.addEventListener('click', function () { Reveal.slide(i); });
+    meter.appendChild(b);
+  });
+
+  /* ---------- Reveal.js: runs the deck ---------- */
+  function show(i, section, dur) {
+    var s = STATES[i];
+    gsap.to(document.documentElement, { '--bg': s.bg, '--ink': s.ink, duration: dur });
+    document.getElementById('glass').style.color = s.ink;
+    placeBean(i, dur);
+    stampIn(section);
+    if (i !== 8) stopSteam();
+    Array.prototype.forEach.call(meter.children, function (b, n) { b.setAttribute('aria-current', n === i); });
+    try { ENTER[i](); } catch (err) { console.error('Slide ' + (i + 1), err); }
+  }
+
+  Reveal.on('ready', function (e) { show(e.indexh, e.currentSlide, 0); });
+  Reveal.on('slidechanged', function (e) { show(e.indexh, e.currentSlide, calm ? 0 : 1.1); });
+  /* Animate.css: each number on the brewing slide arrives on its own key press */
+  Reveal.on('fragmentshown', function (e) {
+    e.fragments.forEach(function (f) { f.classList.add('animate__animated', f.dataset.anim); });
+  });
+  Reveal.on('fragmenthidden', function (e) {
+    e.fragments.forEach(function (f) { f.classList.remove('animate__animated', f.dataset.anim); });
+  });
+
+  Reveal.initialize({
+    width: portrait ? 640 : 1280,
+    height: portrait ? 1136 : 720,
+    margin: 0,
+    center: false,
+    hash: false,
+    progress: false,
+    transition: 'none',
+    backgroundTransition: 'none',
+    controlsTutorial: false,
+    pdfSeparateFragments: false,
+    scrollActivationWidth: 0   /* keep slides on phones instead of Reveal's scroll view */
+  });
+})();
+</script>
+</body>
+</html>
