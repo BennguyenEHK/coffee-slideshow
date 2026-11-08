@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" role="img" aria-labelledby="t d">
+  <title id="t">Roasting</title>
+  <desc id="d">Heat turns green coffee beans brown and builds flavor.</desc>
+  <style>
+    .card{fill:#f4efe9;opacity:0;transform:translateY(24px);animation:up .7s ease-out .1s forwards}
+    .h{font:700 36px system-ui,Segoe UI,Arial,sans-serif;fill:#3b2a20}
+    .p{font:400 20px system-ui,Segoe UI,Arial,sans-serif;fill:#5a4a40;opacity:0;animation:fade .6s ease-out 1.9s forwards}
+    .typed{clip-path:inset(0 100% 0 0);animation:type 1.2s steps(8) .6s forwards}
+    .bar{fill:#a0522d;transform:scaleX(0);transform-origin:40px 0;animation:grow 1s ease-out 2.2s forwards}
+    @keyframes up{to{opacity:1;transform:none}}
+    @keyframes fade{to{opacity:1}}
+    @keyframes type{to{clip-path:inset(0 0 0 0)}}
+    @keyframes grow{to{transform:scaleX(1)}}
+    @media (prefers-reduced-motion: reduce){.card,.p,.typed,.bar{animation:none;opacity:1;transform:none;clip-path:none}}
+  </style>
+  <rect class="card" x="8" y="8" width="704" height="184" rx="16"/>
+  <text class="h typed" x="40" y="72">Roasting</text>
+  <text class="p" x="40" y="118">Heat turns green coffee beans brown and builds flavor.</text>
+  <rect class="bar" x="40" y="146" width="320" height="8" rx="4"/>
+</svg>
