@@ -35,7 +35,7 @@
       s.id = 'ben-ani-css';
       s.textContent =
         '.ben-ani-reveal{transition:opacity .6s ease-out,transform .6s ease-out}' +
-        '.ben-ani-reveal.ben-wait{opacity:0;transform:translateY(24px)}' +
+        '.ben-ani-reveal.ben-wait{opacity:0;transform:translateY(24px);transition:none}' +
         '.ben-typing::after{content:"|";animation:ben-blink 1s steps(1) infinite}' +
         '@keyframes ben-blink{50%{opacity:0}}' +
         '.ben-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}';
@@ -49,11 +49,15 @@
         if (e.target.benText) type(e.target);
       });
     }, { threshold: 0.15 });
-    document.querySelectorAll('.ben-ani:not(.ben-on)').forEach(function (el) {
+    var els = document.querySelectorAll('.ben-ani:not(.ben-on)');
+    els.forEach(function (el) {
       el.classList.add('ben-on');
       if (el.classList.contains('ben-ani-reveal')) el.classList.add('ben-wait');
       if (el.classList.contains('ben-ani-type') && !el.children.length) prepType(el);
-      io.observe(el);
+    });
+    // Let the hidden state paint first, or on-screen cards would never visibly fade in.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { els.forEach(function (el) { io.observe(el); }); });
     });
   }
 
